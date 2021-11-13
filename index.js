@@ -65,14 +65,33 @@ var Chain = /** @class */ (function () {
         configurable: true
     });
     Chain.prototype.addBlock = function (transaction, senderPublicKey, signature) {
-        var newBlock = new Block(this.lastBlock.hash, transaction);
-        this.chain.push(newBlock);
+        var verifier = crypto.createVerify('SHA256');
+        verifier.update(transaction.toString());
+        var isValid = verifier.verify(senderPublicKey, signature);
+        if (isValid) {
+            var newBlock = new Block(this.lastBlock.hash, transaction);
+            this.chain.push(newBlock);
+        }
     };
     Chain.instance = new Chain(); //singleton -> ONLY ONE CHAIN
     return Chain;
 }());
 var Wallet = /** @class */ (function () {
     function Wallet() {
+        var keyPair = crypto.generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { type: 'spki', format: 'pem' },
+            privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+        });
+        this.publicKey = keyPair.publicKey;
+        this.privateKey = keyPair.privateKey;
     }
+    Wallet.prototype.sendMoney = function (amount, payeePublicKey) {
+        var transaction = new Transaction(amount, this.publicKey, payeePublicKey);
+        var sign = crypto.createSign('SHA256');
+        sign.update(transaction.toString()).end();
+        var signature = sign.sign(this.privateKey);
+        Chain.instance.addBlock(transaction, this.publicKey, signature.toString());
+    };
     return Wallet;
 }());

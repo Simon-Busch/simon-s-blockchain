@@ -41,11 +41,41 @@ class Chain {
   }
 
   addBlock(transaction: Transaction, senderPublicKey: string, signature: string) {
-    const newBlock = new Block(this.lastBlock.hash, transaction);
-    this.chain.push(newBlock);
+    const verifier = crypto.createVerify('SHA256');
+    verifier.update(transaction.toString());
+
+    const isValid = verifier.verify(senderPublicKey, signature);
+
+    if (isValid) {
+      const newBlock = new Block(this.lastBlock.hash, transaction);
+      this.chain.push(newBlock);
+    }
   }
 }
 
 class Wallet {
+  public publicKey: string;
+  public privateKey: string;
 
+  constructor () {
+    const keyPair = crypto.generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      publicKeyEncoding: {type: 'spki', format: 'pem'},
+      privateKeyEncoding: {type: 'pkcs8', format: 'pem'},
+    });
+    this.publicKey = keyPair.publicKey;
+    this.privateKey = keyPair.privateKey;
+  }
+
+
+  sendMoney(amount: number, payeePublicKey: string) {
+    const transaction = new Transaction(amount, this.publicKey, payeePublicKey);
+
+    const sign = crypto.createSign('SHA256');
+    sign.update(transaction.toString()).end();
+
+    const signature = sign.sign(this.privateKey);
+
+    Chain.instance.addBlock(transaction, this.publicKey, signature.toString());
+  }
 }
