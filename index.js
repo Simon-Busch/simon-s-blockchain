@@ -40,6 +40,7 @@ var Block = /** @class */ (function () {
         this.prevHash = prevHash;
         this.transaction = transaction;
         this.timestamp = timestamp;
+        this.nonce = Math.round(Math.random() * 99999999999);
     }
     Object.defineProperty(Block.prototype, "hash", {
         get: function () {
@@ -64,12 +65,29 @@ var Chain = /** @class */ (function () {
         enumerable: false,
         configurable: true
     });
+    Chain.prototype.mine = function (nonce) {
+        var solution = 1;
+        console.log('⛏⛏⛏Mining a block .....');
+        //b rute force computation 
+        // simulate mining
+        while (true) {
+            var hash = crypto.createHash('MD5');
+            hash.update((nonce + solution).toString()).end();
+            var attempt = hash.digest('hex');
+            if (attempt.substr(0, 4) === '0000') {
+                console.log("Solved: " + solution);
+                return solution;
+            }
+            solution += 1;
+        }
+    };
     Chain.prototype.addBlock = function (transaction, senderPublicKey, signature) {
         var verifier = crypto.createVerify('SHA256');
         verifier.update(transaction.toString());
         var isValid = verifier.verify(senderPublicKey, signature);
         if (isValid) {
             var newBlock = new Block(this.lastBlock.hash, transaction);
+            this.mine(newBlock.nonce);
             this.chain.push(newBlock);
         }
     };
