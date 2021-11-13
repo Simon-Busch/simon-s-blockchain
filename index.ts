@@ -1,8 +1,9 @@
 import * as crypto from 'crypto';
 
+// Transfer of funds between two wallets
 class Transaction {
   constructor(
-    public amount: number,
+    public amount: number, 
     public payer: string, // public key
     public payee: string // public key
   ) {}
@@ -12,14 +13,15 @@ class Transaction {
   }
 }
 
+// Individual block on the chain
 class Block {
 
-  public nonce = Math.round(Math.random() * 99999999999); 
+  public nonce = Math.round(Math.random() * 999999999);
 
   constructor(
-    public prevHash: string | null, //link to previous block
-    public transaction: Transaction,
-    public timestamp = Date.now()
+    public prevHash: string, 
+    public transaction: Transaction, 
+    public ts = Date.now()
   ) {}
 
   get hash() {
@@ -31,31 +33,36 @@ class Block {
 }
 
 class Chain {
-  public static instance = new Chain(); //singleton -> ONLY ONE CHAIN
+  // Singleton instance
+  public static instance = new Chain();
 
   chain: Block[];
 
   constructor() {
-    this.chain = [new Block(null, new Transaction(100, 'genesis block', 'Simon'))];
+    this.chain = [
+      // Genesis block
+      new Block('', new Transaction(100, 'genesis', 'satoshi'))
+    ];
   }
 
+  // Most recent block
   get lastBlock() {
-    return this.chain[this.chain.length -1];
+    return this.chain[this.chain.length - 1];
   }
 
-  mine(nonce:number){
+  // Proof of work system
+  mine(nonce: number) {
     let solution = 1;
+    console.log('⛏️  mining...')
 
-    console.log('⛏⛏⛏Mining a block .....');
-    //b rute force computation 
-    // simulate mining
-    while (true) {
+    while(true) {
+
       const hash = crypto.createHash('MD5');
       hash.update((nonce + solution).toString()).end();
 
       const attempt = hash.digest('hex');
 
-      if (attempt.substr(0,4) === '0000') {
+      if(attempt.substr(0,4) === '0000'){
         console.log(`Solved: ${solution}`);
         return solution;
       }
@@ -64,11 +71,12 @@ class Chain {
     }
   }
 
-  addBlock(transaction: Transaction, senderPublicKey: string, signature: string) {
-    const verifier = crypto.createVerify('SHA256');
-    verifier.update(transaction.toString());
+  // Add a new block to the chain if valid signature & proof of work is complete
+  addBlock(transaction: Transaction, senderPublicKey: string, signature: Buffer) {
+    const verify = crypto.createVerify('SHA256');
+    verify.update(transaction.toString());
 
-    const isValid = verifier.verify(senderPublicKey, signature);
+    const isValid = verify.verify(senderPublicKey, signature);
 
     if (isValid) {
       const newBlock = new Block(this.lastBlock.hash, transaction);
@@ -76,22 +84,23 @@ class Chain {
       this.chain.push(newBlock);
     }
   }
+
 }
 
 class Wallet {
   public publicKey: string;
   public privateKey: string;
 
-  constructor () {
-    const keyPair = crypto.generateKeyPairSync('rsa', {
+  constructor() {
+    const keypair = crypto.generateKeyPairSync('rsa', {
       modulusLength: 2048,
-      publicKeyEncoding: {type: 'spki', format: 'pem'},
-      privateKeyEncoding: {type: 'pkcs8', format: 'pem'},
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
     });
-    this.publicKey = keyPair.publicKey;
-    this.privateKey = keyPair.privateKey;
-  }
 
+    this.privateKey = keypair.privateKey;
+    this.publicKey = keypair.publicKey;
+  }
 
   sendMoney(amount: number, payeePublicKey: string) {
     const transaction = new Transaction(amount, this.publicKey, payeePublicKey);
@@ -99,8 +108,20 @@ class Wallet {
     const sign = crypto.createSign('SHA256');
     sign.update(transaction.toString()).end();
 
-    const signature = sign.sign(this.privateKey);
-
-    Chain.instance.addBlock(transaction, this.publicKey, signature.toString());
+    const signature = sign.sign(this.privateKey); 
+    Chain.instance.addBlock(transaction, this.publicKey, signature);
   }
 }
+
+// Example usage
+
+const satoshi = new Wallet();
+const bob = new Wallet();
+const alice = new Wallet();
+
+satoshi.sendMoney(50, bob.publicKey);
+bob.sendMoney(23, alice.publicKey);
+alice.sendMoney(5, bob.publicKey);
+
+console.log(Chain.instance);
+
